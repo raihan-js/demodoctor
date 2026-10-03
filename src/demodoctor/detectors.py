@@ -85,12 +85,13 @@ def jerk(actions: np.ndarray) -> np.ndarray:
     return np.concatenate([[0.0, 0.0], jerk_v])
 
 
-def detect_jitter(actions: np.ndarray, k: float = 5.0) -> tuple[float, bool]:
+def detect_jitter(actions: np.ndarray, k: float = 3.0) -> tuple[float, bool]:
     """Flag jitter by comparing raw jerk against median-filtered jerk.
 
     A median filter (window 5) removes iid sensor noise but preserves genuine
     smooth motion, so the filtered jerk is a label-free clean baseline. Flag
-    when raw jerk exceeds k× the filtered baseline.
+    when raw jerk exceeds k× the filtered baseline. k=3 separates scaled
+    jitter (ratios 2.7-5.2) from clean motion (1.6-2.8) on PushT.
     """
     from scipy.ndimage import median_filter
 
@@ -191,16 +192,25 @@ def detect_frame_gaps(timestamps: np.ndarray, k: float = 1.5) -> tuple[float, bo
     return score, bool(gaps), gaps
 
 
-def detect_duplicate_frames(frames: np.ndarray) -> tuple[float, bool, list]:
+def detect_duplicate_frames(frames: np.ndarray,
+                              actions: np.ndarray | None = None,
+                              eps: float = 1e-3) -> tuple[float, bool, list]:
     """Flag exact-duplicate consecutive frames (stuck camera).
 
-    Real sensors never produce bitwise-identical consecutive frames, so any
-    exact duplicate is a certain fault with no threshold to tune.
-    Returns (fraction_duplicate, flag, duplicate_indices).
+    Real sensors never produce bitwise-identical consecutive frames, so exact
+    duplicates are certain faults with no threshold to tune — BUT only when
+    the robot is moving. A still robot legitimately sees still frames, so
+    when actions are given, duplicates count only where action velocity
+    exceeds eps. Returns (fraction_duplicate, flag, duplicate_indices).
     """
     if len(frames) < 2:
         return 0.0, False, []
+    if actions is not None:
+        v = action_speed(np.asarray(actions, dtype=float))
+        moving = v[1:] > eps
+    else:
+        moving = np.ones(len(frames) - 1, dtype=bool)
     same = [int(i) for i in range(1, len(frames))
-            if (frames[i] == frames[i - 1]).all()]
+            if (frames[i] == frames[i - 1]).all() and moving[i - 1]]
     frac = len(same) / (len(frames) - 1)
     return frac, bool(same), same
