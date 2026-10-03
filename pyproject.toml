@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "demodoctor"
+version = "0.1.0"
+description = "Find bad robot demonstrations automatically, measure what they cost a policy"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "pandas>=2.0",
+    "pyarrow>=14.0",
+]
+
+[project.optional-dependencies]
+robot = [
+    "torch>=2.2",
+    "lerobot",
+    "gymnasium",
+    "mujoco",
+    "opencv-python-headless",
+]
+dev = ["pytest>=8.0", "matplotlib>=3.7"]
+cli = ["typer>=0.9"]
+
+[project.scripts]
+demodoctor = "demodoctor.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
