@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from demodoctor.faults import (FAULTS, FaultManifest, inject_drop_frames,
+from demodoctor.faults import (FAULTS, FaultManifest, inject_dup_frames,
                                inject_fault, inject_jitter, inject_lag,
                                inject_stall, inject_truncation)
 
@@ -78,19 +78,22 @@ class TestTruncation:
             inject_truncation(frames, actions, cut=50)
 
 
-class TestDropFrames:
-    def test_indices_dropped(self):
+class TestDupFrames:
+    def test_frames_duplicated(self):
         frames, actions, _ = make_episode(T=50)
-        f2, a2, rec = inject_drop_frames(frames, actions, drop_idx=[3, 7, 11])
-        assert len(f2) == 47 and len(a2) == 47
-        assert rec["dropped"] == [3, 7, 11]
-        # kept frames are the originals in order
-        assert (f2[3] == frames[4]).all()
+        f2, a2, rec = inject_dup_frames(frames, actions, dup_idx=[3, 7, 11])
+        assert f2.shape == frames.shape
+        assert (f2[3] == frames[2]).all()
+        assert (f2[7] == frames[6]).all()
+        assert (f2[4] == frames[4]).all()  # untouched
+        assert (a2 == actions).all()  # actions unchanged
+        assert rec["duplicated"] == [3, 7, 11]
 
-    def test_empty_drop_is_identity(self):
+    def test_empty_dup_is_identity(self):
         frames, actions, _ = make_episode()
-        f2, a2, rec = inject_drop_frames(frames, actions, drop_idx=[])
-        assert len(f2) == len(frames) and rec["kept"] == len(frames)
+        f2, _, rec = inject_dup_frames(frames, actions, dup_idx=[])
+        assert (f2 == frames).all()
+        assert rec["duplicated"] == []
 
 
 class TestManifest:
@@ -104,7 +107,7 @@ class TestManifest:
         frames, actions, rng = make_episode()
         for fault, kw in [("lag", {"lag": 2}), ("stall", {"start": 5, "length": 10}),
                           ("jitter", {"sigma": 0.1}), ("truncation", {"cut": 10}),
-                          ("drop_frames", {"drop_idx": [1, 2]})]:
+                          ("dup_frames", {"dup_idx": [1, 2]})]:
             out = inject_fault(frames, actions, fault, rng, **kw)
             assert out[-1]["type"] == fault
 
@@ -114,4 +117,4 @@ class TestManifest:
             inject_fault(frames, actions, "explode", rng)
 
     def test_fault_registry(self):
-        assert set(FAULTS) == {"lag", "stall", "jitter", "truncation", "drop_frames"}
+        assert set(FAULTS) == {"lag", "stall", "jitter", "truncation", "dup_frames"}

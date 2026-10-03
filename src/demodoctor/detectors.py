@@ -58,6 +58,26 @@ def estimate_lag(frames: np.ndarray, actions: np.ndarray,
     return best, max(0.0, min(1.0, prominence))
 
 
+def estimate_lag_stable(frames: np.ndarray, actions: np.ndarray,
+                        max_lag: int = 5,
+                        min_prominence: float = 0.2) -> tuple[int, bool]:
+    """Stable lag estimate: both episode halves must agree on a nonzero lag.
+
+    Single-window argmax fires on noise (flat correlation landscapes give
+    arbitrary peaks). A true injected lag is stationary and appears in both
+    halves; noise peaks jump between halves. Returns (lag, confident).
+    """
+    T = len(frames)
+    if T < 2 * (max_lag + 10):
+        return 0, False
+    mid = T // 2
+    lag1, p1 = estimate_lag(frames[:mid], actions[:mid], max_lag)
+    lag2, prom2 = estimate_lag(frames[mid:], actions[mid:], max_lag)
+    p2 = prom2
+    confident = (lag1 == lag2 and lag1 > 0 and min(p1, p2) >= min_prominence)
+    return (lag1 if confident else 0), confident
+
+
 def jerk(actions: np.ndarray) -> np.ndarray:
     """Per-timestep jerk magnitude (diff of acceleration). Shape (T,)."""
     acc = np.diff(actions, axis=0)
@@ -122,3 +142,65 @@ def progress_monotonicity(embeddings: np.ndarray) -> tuple[float, bool]:
     steps = np.diff(proj)
     mono = float((steps > 0).mean()) if len(steps) else 0.0
     return mono, bool(mono < 0.6)
+
+
+def detect_truncation(length: int, median_length: float,
+                      mad: float) -> tuple[float, bool]:
+    """Flag episodes much shorter than the corpus median (robust z-score).
+
+    Truncated demos end before success, so they are length outliers.
+    median_length/mad come from the corpus itself — no labels needed.
+    """
+    if mad < 1e-8:
+        return 0.0, False
+    z = (median_length - length) / (1.4826 * mad)
+    score = min(max(z / 3.0, 0.0), 1.0)
+    return score, bool(z > 3.0)
+
+
+def detect_drop_frames(frames: np.ndarray, k: float = 8.0) -> tuple[float, bool, list]:
+    """Flag motion discontinuities: dropped frames appear as sudden jumps.
+
+    Scores the max motion-energy spike relative to the episode median.
+    Returns (score, flag, spike_indices).
+    """
+    m = motion_energy(frames)
+    med = np.median(m) + 1e-8
+    spikes = [int(i) for i in np.where(m > k * med)[0]]
+    score = min(float(m.max() / (k * med)) / 2.0, 1.0) if len(m) else 0.0
+    return score, bool(spikes), spikes
+
+
+def detect_frame_gaps(timestamps: np.ndarray, k: float = 1.5) -> tuple[float, bool, list]:
+    """Flag dropped frames via timestamp gaps (needs no motion signal).
+
+    A dropped frame leaves a 2× (or larger) gap in an otherwise regular
+    timestamp grid. Returns (score, flag, gap_indices).
+
+    NOTE: only works when timestamps are real. Rebuilt datasets with
+    auto-generated uniform timestamps destroy the signal — use
+    detect_duplicate_frames for those.
+    """
+    ts = np.asarray(timestamps, dtype=float)
+    if len(ts) < 3:
+        return 0.0, False, []
+    dt = np.diff(ts)
+    med = np.median(dt) + 1e-8
+    gaps = [int(i + 1) for i in np.where(dt > k * med)[0]]
+    score = min(float(dt.max() / (k * med)) / 3.0, 1.0)
+    return score, bool(gaps), gaps
+
+
+def detect_duplicate_frames(frames: np.ndarray) -> tuple[float, bool, list]:
+    """Flag exact-duplicate consecutive frames (stuck camera).
+
+    Real sensors never produce bitwise-identical consecutive frames, so any
+    exact duplicate is a certain fault with no threshold to tune.
+    Returns (fraction_duplicate, flag, duplicate_indices).
+    """
+    if len(frames) < 2:
+        return 0.0, False, []
+    same = [int(i) for i in range(1, len(frames))
+            if (frames[i] == frames[i - 1]).all()]
+    frac = len(same) / (len(frames) - 1)
+    return frac, bool(same), same

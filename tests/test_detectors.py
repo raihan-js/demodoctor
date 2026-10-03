@@ -1,10 +1,11 @@
 import numpy as np
 import pytest
 
-from demodoctor.detectors import (action_speed, detect_jitter, detect_stall,
-                                  estimate_lag, jerk, motion_energy,
-                                  progress_monotonicity)
-from demodoctor.faults import (inject_drop_frames, inject_jitter, inject_lag,
+from demodoctor.detectors import (action_speed, detect_drop_frames,
+                                   detect_jitter, detect_stall,
+                                   detect_truncation, estimate_lag, jerk,
+                                   motion_energy, progress_monotonicity)
+from demodoctor.faults import (inject_dup_frames, inject_jitter, inject_lag,
                                inject_stall, inject_truncation)
 
 
@@ -103,6 +104,27 @@ class TestJerkStall:
         assert not flag
 
 
+class TestDuplicateFrames:
+    def test_duplicates_found(self):
+        from demodoctor.detectors import detect_duplicate_frames
+        from demodoctor.faults import inject_dup_frames
+        frames, actions, _ = smooth_episode(T=50)
+        f2, _, _ = inject_dup_frames(frames, actions, dup_idx=[5, 20])
+        frac, flag, idx = detect_duplicate_frames(f2)
+        assert flag
+        assert 5 in idx and 20 in idx
+
+    def test_clean_has_no_duplicates(self):
+        from demodoctor.detectors import detect_duplicate_frames
+        frames, _, _ = smooth_episode(T=50)
+        # real sensors have per-pixel noise; the 8x8 uint8 synthetic frames can
+        # quantize adjacents identically, so dither first (detector is unchanged)
+        rng = np.random.default_rng(0)
+        noisy = frames.astype(np.int16) + rng.integers(0, 2, size=frames.shape)
+        _, flag, _ = detect_duplicate_frames(noisy.astype(np.uint8))
+        assert not flag
+
+
 class TestProgress:
     def test_monotonic_clean(self):
         rng = np.random.default_rng(0)
@@ -125,6 +147,34 @@ class TestProgress:
         e = np.zeros((20, 4))
         mono, flag = progress_monotonicity(e)
         assert mono == 0.0 and flag
+
+
+class TestTruncation:
+    def test_short_episode_flagged(self):
+        _, flag = detect_truncation(80, median_length=130.0, mad=10.0)
+        assert flag
+
+    def test_normal_length_passes(self):
+        _, flag = detect_truncation(130, median_length=130.0, mad=10.0)
+        assert not flag
+
+    def test_degenerate_mad(self):
+        _, flag = detect_truncation(50, median_length=130.0, mad=0.0)
+        assert not flag
+
+
+class TestDropFrames:
+    def test_spike_detected(self):
+        frames = np.zeros((50, 8, 8, 3), dtype=np.uint8)
+        frames[25] = 255  # sudden jump = dropped-frame discontinuity
+        _, flag, spikes = detect_drop_frames(frames)
+        assert flag
+        assert 25 in spikes
+
+    def test_smooth_passes(self):
+        frames, _, _ = smooth_episode()
+        _, flag, _ = detect_drop_frames(frames)
+        assert not flag
 
 
 class TestEndToEnd:

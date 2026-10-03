@@ -5,7 +5,8 @@ Faults (all operate on a single episode of T timesteps):
   stall        - action velocity ~0 for a contiguous block (teleop freeze)
   jitter       - high-frequency noise added to actions
   truncation   - episode cut before success (drops the final K frames)
-  drop_frames  - random frames dropped (and actions duplicated to keep length)
+  dup_frames   - random frames duplicated in place (stuck camera); length
+                 preserved so the fault is isolated from truncation effects.
 
 Every injector returns (corrupted_episode, fault_record). The fault_record is
 the ground truth the detectors are scored against — never shown to them.
@@ -17,7 +18,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-FAULTS = ("lag", "stall", "jitter", "truncation", "drop_frames")
+FAULTS = ("lag", "stall", "jitter", "truncation", "dup_frames")
 
 
 @dataclass
@@ -70,16 +71,19 @@ def inject_truncation(frames: np.ndarray, actions: np.ndarray,
                                            "kept": len(frames) - cut}
 
 
-def inject_drop_frames(frames: np.ndarray, actions: np.ndarray,
-                       drop_idx: list[int]) -> tuple[np.ndarray, np.ndarray, dict]:
-    """Drop frames; duplicate the previous action to keep array length.
+def inject_dup_frames(frames: np.ndarray, actions: np.ndarray,
+                      dup_idx: list[int]) -> tuple[np.ndarray, np.ndarray, dict]:
+    """Duplicate frames in place (stuck camera): frame i becomes a copy of i-1.
 
-    Returns shortened arrays plus the dropped indices as ground truth.
+    Length is preserved, so the fault is isolated from truncation effects and
+    timestamps stay regular. Returns same shapes in/out plus ground truth.
     """
-    keep = np.array([i for i in range(len(frames)) if i not in set(drop_idx)])
-    return frames[keep], actions[keep], {"type": "drop_frames",
-                                         "dropped": sorted(drop_idx),
-                                         "kept": len(keep)}
+    out = frames.copy()
+    for i in sorted(dup_idx):
+        if i > 0:
+            out[i] = frames[i - 1]
+    return out, actions, {"type": "dup_frames",
+                          "duplicated": sorted(dup_idx)}
 
 
 def inject_fault(frames: np.ndarray, actions: np.ndarray, fault: str,
@@ -96,6 +100,6 @@ def inject_fault(frames: np.ndarray, actions: np.ndarray, fault: str,
         return frames, a2, rec
     if fault == "truncation":
         return inject_truncation(frames, actions, kwargs["cut"])
-    if fault == "drop_frames":
-        return inject_drop_frames(frames, actions, kwargs["drop_idx"])
+    if fault == "dup_frames":
+        return inject_dup_frames(frames, actions, kwargs["dup_idx"])
     raise ValueError(f"unknown fault {fault!r}; choose from {FAULTS}")
