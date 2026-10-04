@@ -104,11 +104,15 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--repo-id", default=None)
     ap.add_argument("--root", default="data/pusht_corrupted")
+    ap.add_argument("--video-backend", default=None)
     args = ap.parse_args()
 
     from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
-    src = LeRobotDataset("lerobot/pusht")
+    load_kw = {}
+    if args.video_backend:
+        load_kw["video_backend"] = args.video_backend
+    src = LeRobotDataset("lerobot/pusht", **load_kw)
     n_eps = src.num_episodes
     print(f"Source: {n_eps} episodes", flush=True)
 
@@ -117,13 +121,16 @@ def main() -> None:
     print(f"Corrupting {len(plan)} episodes", flush=True)
 
     out_root = Path(args.root) / args.condition
-    new_ds = LeRobotDataset.create(
+    create_kw = dict(
         repo_id=args.repo_id or f"demodoctor-pusht-{args.condition}",
         fps=10,
         features=src.features,
         root=str(out_root),
         use_videos=True,
     )
+    if args.video_backend:
+        create_kw["video_backend"] = args.video_backend
+    new_ds = LeRobotDataset.create(**create_kw)
 
     rng = np.random.default_rng(args.seed)
     manifest = {}

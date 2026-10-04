@@ -23,6 +23,7 @@ def main() -> None:
     ap.add_argument("--src-repo", default="raihan-js/demodoctor-pusht-corrupted")
     ap.add_argument("--out-root", default="data/pusht_cleaned/cleaned")
     ap.add_argument("--out-repo", default="raihan-js/demodoctor-pusht-cleaned")
+    ap.add_argument("--video-backend", default=None)
     args = ap.parse_args()
 
     import sys
@@ -33,7 +34,10 @@ def main() -> None:
 
     from demodoctor.detectors import detect_jitter, detect_stall
 
-    src = LeRobotDataset(args.src_repo, root=args.src_root)
+    load_kw = {}
+    if args.video_backend:
+        load_kw["video_backend"] = args.video_backend
+    src = LeRobotDataset(args.src_repo, root=args.src_root, **load_kw)
     manifest = json.loads(Path(args.src_root, "manifest.json").read_text())
 
     # decide drops
@@ -52,9 +56,12 @@ def main() -> None:
     print(f"  of dropped, truly faulty: {n_truly_faulty}/{len(dropped)}", flush=True)
 
     # write kept episodes to a new dataset
-    new_ds = LeRobotDataset.create(
+    create_kw = dict(
         repo_id=args.out_repo, fps=10, features=src.features,
         root=args.out_root, use_videos=True)
+    if args.video_backend:
+        create_kw["video_backend"] = args.video_backend
+    new_ds = LeRobotDataset.create(**create_kw)
     import sys as _sys
     _sys.path.insert(0, "scripts")
     from build_corrupted import write_episode
