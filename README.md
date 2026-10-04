@@ -18,13 +18,19 @@ Robot-learning teams say data quality matters more than model size, but controll
 
 ## Detectors (label-free)
 
-- **Lag estimator**: cross-correlate image-motion energy with action-velocity energy
-- **Jerk/stall**: jerk vs median-filtered baseline; contiguous near-zero-velocity runs
-- **Progress monotonicity**: frame-embedding projection onto start→goal direction
+| Detector | Target | Result |
+|---|---|---|
+| Stall runs | Teleop freeze | **F1 0.867** |
+| Jitter vs filtered baseline | Shaky teleop | **F1 0.687** |
+| Stable lag XCorr | Camera delay | F1 0.119 (honest null — flat landscape) |
+| Length outlier | Truncation | F1 ~0 (honest null — variance swamps cuts) |
+| Exact duplicates | Stuck camera | Null (re-encoding confound, explained) |
+
+Cleaning rule (fixed before policy results): drop stall/jitter-flagged episodes → 175/206 kept, 26/31 dropped truly faulty (84% cleaning precision).
 
 ## Status
 
-Injector + detectors: 30 tests green. Policy experiments pending.
+Injector + detectors: 37 tests green. Corrupted + cleaned sets on HF. Policy grid pending (60k-step baseline training).
 
 ## Limitations
 
