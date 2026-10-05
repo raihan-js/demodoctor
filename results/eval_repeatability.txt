@@ -1,0 +1,11 @@
+checkpoint     old_max_reward new_max_reward  diff   old_succ% new_succ%
+clean_s0               0.468          0.477  +0.009       2.0       2.0
+clean_s1               0.406          0.403  -0.003       0.0       0.0
+clean_s2               0.405          0.395  -0.010       4.0       0.0
+corrupted_s0           0.412          0.375  -0.037       2.0       0.0
+corrupted_s1           0.442          0.437  -0.005       4.0       4.0
+cleaned_s0             0.333          0.333  +0.000       0.0       0.0
+cleaned_s1             0.377          0.414  +0.036       0.0       0.0
+
+n=7 checkpoints evaluated twice (50 rollouts each, batch_size 1)
+|diff| in mean max reward: mean 0.014, max 0.037; success-rate changed for 2 of 7

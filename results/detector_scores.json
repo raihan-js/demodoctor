@@ -1,0 +1,42 @@
+{
+  "lag": {
+    "precision": 0.074,
+    "recall": 0.308,
+    "f1": 0.119,
+    "tp": 4,
+    "fp": 50,
+    "fn": 9
+  },
+  "jitter": {
+    "precision": 0.55,
+    "recall": 0.917,
+    "f1": 0.687,
+    "tp": 11,
+    "fp": 9,
+    "fn": 1
+  },
+  "stall": {
+    "precision": 0.765,
+    "recall": 1.0,
+    "f1": 0.867,
+    "tp": 13,
+    "fp": 4,
+    "fn": 0
+  },
+  "truncation": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "tp": 0,
+    "fp": 0,
+    "fn": 12
+  },
+  "dup_frames": {
+    "precision": 0.059,
+    "recall": 1.0,
+    "f1": 0.111,
+    "tp": 12,
+    "fp": 193,
+    "fn": 0
+  }
+}

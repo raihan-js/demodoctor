@@ -1,3 +1,5 @@
+> **SUPERSEDED 2026-10-05.** The control grid finished and the experiment is complete (a null result). See `README.md` for results and `results/` for the numbers. The status below is historical.
+
 # HANDOFF — DemoDoctor session state (2026-10-04)
 
 Read this first if you are picking up this project in a new AI session.

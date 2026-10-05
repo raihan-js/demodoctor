@@ -49,5 +49,7 @@ pytest tests/ -v
 
 ## Current status
 
-- Fault injector + detectors: 30 tests green
-- Pending: LeRobot install, baseline policy, policy cost experiment
+- **COMPLETE (2026-10-05).** Fault injector + detectors: 37 tests green
+- Policy grid done: 4 conditions (clean, corrupted, auto-cleaned, random-175 size control) x 3 seeds x 50 rollouts, ACT, 60k steps, PushT
+- Result: null. No pairwise CI on mean max reward excludes zero (widest: auto-cleaned vs random-175, -0.073 [-0.147, +0.006]); success 0-4% everywhere (floor); same-checkpoint re-evaluation moves mean max reward by 0.014 on average, up to 0.037
+- Numbers: `outputs/final_table.txt`, `outputs/eval_repeatability.txt`; scripts `eval_all.py`, `final_table.py`, `make_chart.py`
