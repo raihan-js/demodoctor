@@ -1,5 +1,7 @@
 # DemoDoctor
 
+Write-up: [DemoDoctor: Bad Robot Demonstrations Are Detectable — Do They Matter?](https://dev.to/raihan-js/demodoctor-bad-robot-demonstrations-are-detectable-do-they-matter-548p)
+
 Find bad robot demonstrations automatically, and measure what they cost a policy.
 
 ## The problem
